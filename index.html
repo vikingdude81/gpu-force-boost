@@ -205,7 +205,7 @@
             .then(data => {
               setLmDetected(prev => {
                 if (data.found && !prev) {
-                  addLog("LM Studio detected — forcing P0!", "success");
+                  addLog("LM Studio detected — applying boost profile", "success");
                   fetch("/api/boost", { method: "POST" });
                 } else if (!data.found && prev) {
                   addLog("LM Studio exited — resetting GPU", "warn");
@@ -248,16 +248,23 @@
         });
       };
 
-      const boosted = state.pstate === "P0";
+      const boosted = !!state.boostActive || (
+        ["P0", "P1", "P2"].includes(state.pstate) &&
+        state.gpuClock >= 900 &&
+        state.memClock >= 5000
+      );
       const clocksLocked = !!state.clocksLocked;
+      const boostReady = !!state.boostReady || clocksLocked || (
+        ["P0", "P1", "P2"].includes(state.pstate) && state.memClock >= 5000
+      );
       const ps = PSTATE_INFO[state.pstate] || (connected
         ? { label: "UNKNOWN", color: "#8888aa", glow: "none" }
         : { label: "OFFLINE", color: "#4a6a8a", glow: "none" });
 
       // When clocks are locked but GPU is idle, show a "ready" variant
-      const heroColor = clocksLocked && !boosted ? "#aadd44" : ps.color;
-      const heroGlow  = clocksLocked && !boosted ? "0 0 20px #aadd4444" : ps.glow;
-      const heroLabel = clocksLocked && !boosted ? "LOCKED | READY" : ps.label;
+      const heroColor = boostReady && !boosted ? "#aadd44" : ps.color;
+      const heroGlow  = boostReady && !boosted ? "0 0 20px #aadd4444" : ps.glow;
+      const heroLabel = boostReady && !boosted ? "READY | WAITING FOR LOAD" : ps.label;
 
       return (
         <div style={{
@@ -282,7 +289,7 @@
               <StatusBadge active={state.driverModel === "TCC"} label={state.driverModel || "---"} />
               <StatusBadge active={clocksLocked}      label={clocksLocked ? "CLOCKS LOCKED" : "CLOCKS FREE"} />
               <StatusBadge active={state.persistence} label={state.persistence ? "PERSIST ON" : "PERSIST OFF"} />
-              <StatusBadge active={boosted}           label={boosted ? "P0 ACTIVE" : "IDLE"} />
+              <StatusBadge active={boosted}           label={boosted ? "BOOST ACTIVE" : "IDLE / LIGHT LOAD"} />
             </div>
           </div>
 
@@ -306,9 +313,9 @@
               <div style={{ fontSize: 11, color: "#4a6a8a", marginTop: 8 }}>
                 {state.gpuClock} MHz&nbsp;/&nbsp;{state.maxGpuClock} MHz max
               </div>
-              {clocksLocked && !boosted && (
+              {boostReady && !boosted && (
                 <div style={{ fontSize: 10, color: "#aadd44", marginTop: 6, opacity: 0.7 }}>
-                  Clocks locked at max — P0 activates automatically when GPU is under load
+                  Profile is armed. Under load, healthy compute states are usually P0/P1/P2.
                 </div>
               )}
             </div>
@@ -353,10 +360,10 @@
             <div style={{ background: "#0d1520", borderRadius: 10, padding: 20, border: "1px solid #1a2a3a" }}>
               <div style={{ fontSize: 12, color: "#5a7a9a", marginBottom: 16, letterSpacing: "1px" }}>CONTROLS</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <Btn onClick={handleBoost} disabled={boosted || transitioning || !connected} color="#00ff88">
-                  ▲ FORCE P0 BOOST
+                <Btn onClick={handleBoost} disabled={transitioning || !connected} color="#00ff88">
+                  ▲ APPLY BOOST PROFILE
                 </Btn>
-                <Btn onClick={handleReset} disabled={!boosted || transitioning || !connected} color="#ff8844">
+                <Btn onClick={handleReset} disabled={transitioning || !connected} color="#ff8844">
                   ▼ RESET TO DEFAULT
                 </Btn>
                 <Btn onClick={toggleAuto} disabled={!connected} color={autoMode ? "#aa66ff" : "#6a8aaa"}>
@@ -367,7 +374,7 @@
                     fontSize: 10, color: lmDetected ? "#00ff88" : "#5a7a9a",
                     padding: "6px 12px", background: "#0a0e14", borderRadius: 6, textAlign: "center",
                   }}>
-                    {lmDetected ? "● LM Studio detected — P0 active" : "○ Watching for LM Studio..."}
+                    {lmDetected ? "● LM Studio detected — boost profile active" : "○ Watching for LM Studio..."}
                   </div>
                 )}
               </div>

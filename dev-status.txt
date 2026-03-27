@@ -1,0 +1,16 @@
+﻿Reinstalling active NVIDIA display INF (oem27.inf)...
+Microsoft PnP Utility
+
+Adding driver package:  oem27.inf
+Driver package added successfully. (Already exists in the system)
+Published Name:         oem27.inf
+Driver package is up-to-date on device: PCI\VEN_10DE&DEV_2571&SUBSYS_161117AA&REV_A1\4&1c5d7d4&0&0009
+
+Total driver packages:  1
+Added driver packages:  0
+
+
+nvidia-smi after reinstall:
+NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver. Make sure that the latest NVIDIA driver is installed and running. This can also be happening if non-NVIDIA GPU is running as primary display, and NVIDIA GPU is in WDDM mode.
+
+

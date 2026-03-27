@@ -1,0 +1,20 @@
+﻿python : C:\Users\akbon\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\cuda\__init__.py:61: 
+FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml 
+directly, please report this to the maintainers of the package that installed pynvml for you.
+At C:\Users\akbon\Downloads\files\chk.ps1:1 char:1
++ python -c "
++ ~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\akbon\...pynvml for you.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  import pynvml  # type: ignore[import]
+Before load: GPU=420MHz MEM=405MHz P8 11.6W throttle=0x0000
+After alloc: GPU=420MHz MEM=405MHz P8 11.6W throttle=0x0000
+It 1: GPU=420MHz MEM=405MHz P8 15.6W throttle=0x0004  (0.61s)
+It 2: GPU=420MHz MEM=405MHz P8 15.6W throttle=0x0004  (0.42s)
+It 3: GPU=420MHz MEM=405MHz P8 21.1W throttle=0x0004  (0.42s)
+It 4: GPU=420MHz MEM=405MHz P8 23.6W throttle=0x0004  (0.42s)
+It 5: GPU=420MHz MEM=405MHz P8 23.5W throttle=0x0004  (0.42s)
+It 6: GPU=420MHz MEM=405MHz P8 23.5W throttle=0x0004  (0.43s)
+It 7: GPU=420MHz MEM=405MHz P8 23.5W throttle=0x0004  (0.42s)
+It 8: GPU=420MHz MEM=405MHz P8 23.5W throttle=0x0004  (0.42s)

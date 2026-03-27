@@ -53,7 +53,7 @@ function Get-StatusJson {
     $query = "pstate,clocks.gr,clocks.mem,clocks.max.gr,clocks.max.mem," +
              "utilization.gpu,utilization.memory,temperature.gpu," +
              "power.draw,power.limit,memory.used,memory.total," +
-             "persistence_mode,driver_model.current,name"
+             "persistence_mode,clocks_throttle_reasons.sw_power_cap,driver_model.current,name"
 
     $raw = & $NVSMI -i $GPU_IDX --query-gpu=$query --format=csv,noheader,nounits 2>&1
 
@@ -63,21 +63,28 @@ function Get-StatusJson {
     }
 
     $parts = ($raw -split ",") | ForEach-Object { $_.Trim() }
-    if ($parts.Count -lt 14) {
+    if ($parts.Count -lt 15) {
         return "{`"error`":`"Unexpected nvidia-smi output`"}"
     }
 
-    $driverModel = $parts[13].Trim()
-    $gpuName = if ($parts.Count -gt 14) { ($parts[14..($parts.Count-1)] -join ",").Trim() } else { "NVIDIA GPU" }
+    $swPowerCap = $parts[13].Trim()
+    $driverModel = $parts[14].Trim()
+    $gpuName = if ($parts.Count -gt 15) { ($parts[15..($parts.Count-1)] -join ",").Trim() } else { "NVIDIA GPU" }
     $clocksLocked = $script:BoostActive -eq $true
+
+    $gpuClock = Parse-Int $parts[1]
+    $memClock = Parse-Int $parts[2]
+    $gpuUtil = Parse-Int $parts[5]
+    $boostActive = ($parts[0] -in @("P0","P1","P2")) -and ($gpuClock -ge 900) -and ($memClock -ge 5000)
+    $boostReady = $clocksLocked -or (($parts[0] -in @("P0","P1","P2")) -and ($memClock -ge 5000))
 
     [PSCustomObject]@{
         pstate       = $parts[0]
-        gpuClock     = Parse-Int    $parts[1]
-        memClock     = Parse-Int    $parts[2]
+        gpuClock     = $gpuClock
+        memClock     = $memClock
         maxGpuClock  = Parse-Int    $parts[3]
         maxMemClock  = Parse-Int    $parts[4]
-        gpuUtil      = Parse-Int    $parts[5]
+        gpuUtil      = $gpuUtil
         memUtil      = Parse-Int    $parts[6]
         tempC        = Parse-Int    $parts[7]
         powerDraw    = Parse-Double $parts[8]
@@ -85,9 +92,12 @@ function Get-StatusJson {
         memUsedMB    = Parse-Int    $parts[10]
         memTotalMB   = Parse-Int    $parts[11]
         persistence  = ($parts[12] -match "Enabled")
+        swPowerCap   = ($swPowerCap -match "^Active")
         driverModel  = $driverModel
         name         = $gpuName
         clocksLocked = $clocksLocked
+        boostActive  = $boostActive
+        boostReady   = $boostReady
     } | ConvertTo-Json -Compress
 }
 
@@ -104,40 +114,71 @@ function Invoke-Boost {
     $maxMem  = Parse-Int $clkParts[1]
 
     $results = @()
+    $hardFail = $false
 
-    # 1. Persistence mode (may not be supported on all platforms - that's OK)
-    $out = & $NVSMI -i $GPU_IDX -pm 1 2>&1 | Out-String
-    $results += "pm1: $($out.Trim())"
+    # 1. Reset any existing locks first (clean slate)
+    & $NVSMI -i $GPU_IDX -rgc 2>&1 | Out-Null
+    & $NVSMI -i $GPU_IDX -rmc 2>&1 | Out-Null
+    Start-Sleep -Milliseconds 200
 
-    # 2. Lock GPU clocks to max
-    $lgcOk = $false
-    if ($maxGpu -gt 0) {
-        $out = & $NVSMI -i $GPU_IDX -lgc $maxGpu,$maxGpu 2>&1 | Out-String
-        $lgcOk = $out -match 'locked|set|success|All done'
-        $results += "lgc: $($out.Trim())"
-    }
-
-    # 3. Lock memory clocks to max
+    # 2. Lock MEMORY clocks first (GPU needs high mem to reach high GPU clocks)
     $lmcOk = $false
     if ($maxMem -gt 0) {
         $out = & $NVSMI -i $GPU_IDX -lmc $maxMem,$maxMem 2>&1 | Out-String
         $lmcOk = $out -match 'locked|set|success|All done'
+        if ($out -match 'fail|error|not supported|insufficient|denied') { $hardFail = $true }
         $results += "lmc: $($out.Trim())"
+        Start-Sleep -Milliseconds 300
     }
 
-    # 4. Verify by reading current clocks
-    Start-Sleep -Milliseconds 500
+    # 3. Lock GPU clocks to max
+    $lgcOk = $false
+    if ($maxGpu -gt 0) {
+        $out = & $NVSMI -i $GPU_IDX -lgc $maxGpu,$maxGpu 2>&1 | Out-String
+        $lgcOk = $out -match 'locked|set|success|All done'
+        if ($out -match 'fail|error|not supported|insufficient|denied') { $hardFail = $true }
+        $results += "lgc: $($out.Trim())"
+        Start-Sleep -Milliseconds 300
+    }
+
+    # 4. Set power limit to max to prevent SW Power Cap throttling
+    $out = & $NVSMI -i $GPU_IDX -pl 70 2>&1 | Out-String
+    if ($out -match 'fail|error|not supported|insufficient|denied') { $hardFail = $true }
+    $results += "pl: $($out.Trim())"
+
+    # 5. Persistence mode (may not be supported - that's OK)
+    $out = & $NVSMI -i $GPU_IDX -pm 1 2>&1 | Out-String
+    if ($out -match 'fail|error|insufficient|denied') { $hardFail = $true }
+    $results += "pm1: $($out.Trim())"
+
+    # 6. Try application clocks as fallback (deprecated but may still work)
+    if ($maxMem -gt 0 -and $maxGpu -gt 0) {
+        $out = & $NVSMI -i $GPU_IDX -ac $maxMem,$maxGpu 2>&1 | Out-String
+        $results += "ac: $($out.Trim())"
+    }
+
+    # 7. Verify by reading current clocks (with delay for state transition)
+    Start-Sleep -Milliseconds 1000
     $verRaw = & $NVSMI -i $GPU_IDX --query-gpu=clocks.gr,clocks.mem,pstate --format=csv,noheader,nounits 2>&1
     $verParts = ($verRaw -split ",") | ForEach-Object { $_.Trim() }
     $nowGpu = Parse-Int $verParts[0]
     $nowMem = Parse-Int $verParts[1]
     $nowPS  = if ($verParts.Count -gt 2) { $verParts[2] } else { '?' }
 
-    $allOk = $lgcOk -or $lmcOk
+    $boostReady = ($nowMem -ge 5000) -or ($nowGpu -ge 900)
+    $allOk = -not $hardFail
     $script:BoostActive = $allOk
 
     $detail = "GPU:${nowGpu}/${maxGpu}MHz Mem:${nowMem}/${maxMem}MHz PState:${nowPS}"
-    $msg = if ($allOk) { "Clocks locked! $detail" } else { "Lock commands sent but may need admin. $detail" }
+    $msg = if ($allOk) {
+        if ($boostReady) {
+            "Boost profile applied. $detail"
+        } else {
+            "Boost commands applied. Validate under load (P0/P1/P2 with high mem clock is healthy). $detail"
+        }
+    } else {
+        "Boost command failed on this driver/GPU. $detail"
+    }
 
     $debugLog = ($results -join ' | ').Replace('"','').Replace("`n",' ').Replace("`r",'')
     return "{`"ok`":$($allOk.ToString().ToLower()),`"msg`":`"$msg`",`"debug`":`"$debugLog`",`"gpuClock`":$nowGpu,`"memClock`":$nowMem,`"pstate`":`"$nowPS`"}"

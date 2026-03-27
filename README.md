@@ -1,6 +1,6 @@
 # GPU Force Boost
 
-Force your NVIDIA RTX A2000 (or any NVIDIA GPU) to maximum performance state (P0) for LLM inference with LM Studio.
+Tune your NVIDIA RTX A2000 (or any NVIDIA GPU) for high sustained performance during LLM inference with LM Studio.
 
 ## Files
 
@@ -25,7 +25,7 @@ Force your NVIDIA RTX A2000 (or any NVIDIA GPU) to maximum performance state (P0
 # Check current GPU state
 .\gpu-force-boost.ps1 -Mode status
 
-# Force P0 max boost immediately
+# Apply boost profile immediately
 .\gpu-force-boost.ps1 -Mode boost
 
 # Live terminal monitor
@@ -49,9 +49,9 @@ Opens `http://localhost:3001` automatically — live gauges, boost/reset buttons
 ## How it works
 
 - **TCC mode** — for GPUs not driving a display (like a dedicated compute card), switching from WDDM to TCC gives full control over P-states, clock locks, and persistence mode. Without TCC, Windows WDDM overrides nvidia-smi clock commands.
-- **Clock locking** — uses `nvidia-smi -lgc` / `-lmc` to pin GPU and memory clocks to maximum
+- **Clock locking** — uses `nvidia-smi -lgc` / `-lmc` to request high sustained clocks
 - **Persistence mode** — keeps the driver loaded so there's no spin-up lag (TCC only)
-- **P-state** — P0 activates when the GPU has a workload. Locked clocks mean it stays at max the entire time.
+- **P-state** — idle can still show P8/P5. Under real compute load, healthy sustained performance is typically P0/P1/P2 depending on power/thermal limits.
 
 ## TCC Mode (recommended for compute-only GPUs)
 
@@ -72,3 +72,21 @@ nvidia-smi -i 0 -dm 0
 RTX A2000 12GB Desktop: Max Boost 2100 MHz / Memory 6001 MHz (GDDR6)
 
 **Supported GPUs:** Any NVIDIA GPU with `nvidia-smi` support. TCC mode is available on Quadro, RTX A-series, Tesla, and some GeForce cards (check `nvidia-smi -q` for `TCC Supported`).
+
+## Known Good Config (March 2026)
+
+- GPU: NVIDIA RTX A2000 12GB (device id `10DE-2571`)
+- OS: Windows 11 Pro
+- Driver: NVIDIA Production Branch / Studio `595.97`
+- Driver model: `TCC`
+- Board power limit: `70W`
+- Typical sustained load behavior: `P2`, memory around `5701 MHz`, core around `1050-1200 MHz`, SW power cap active near `68-70W`
+
+This behavior is normal for sustained inference on a 70W board. Idle may still show low clocks (P8/P5).
+
+## Throughput Snapshot (Before vs After)
+
+- Qwen 9B: about `2 tok/s` to about `14 tok/s`
+- Small 0.8B model: about `8 tok/s` to about `142 tok/s`
+
+These gains came from restoring proper compute boost behavior (TCC + corrected boost handling), not from forcing permanent P0 at idle.

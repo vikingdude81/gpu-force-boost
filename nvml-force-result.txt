@@ -1,0 +1,50 @@
+﻿python : C:\Users\akbon\Downloads\files\nvml-force-clocks.py:9: FutureWarning: The pynvml package is deprecated. 
+Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of 
+the package that installed pynvml for you.
+At line:1 char:38
++ ... sers\akbon\Downloads\files'; python nvml-force-clocks.py 2>&1 | Out-F ...
++                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\akbon\...pynvml for you.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  from pynvml import *
+GPU count: 1
+GPU 0: NVIDIA RTX A2000 12GB
+
+Current clocks:  GPU=420 MHz  MEM=405 MHz
+Max clocks:      GPU=2100 MHz  MEM=6001 MHz
+Performance state: P8
+Power: 20.1W / 70W (min=10W max=70W)
+
+Throttle reasons bitmask: 0x0000000000000004
+Active: SW_POWER_CAP
+
+--- Supported memory clocks ---
+Supported mem clocks: [6001, 5701, 5001, 810, 405]
+GPU clocks at mem=405MHz: [420..405] (3 levels)
+GPU clocks at mem=6001MHz: [2100..405] (227 levels)
+
+=== ATTEMPTING NVML CLOCK FORCE ===
+
+1. Setting GPU clock range to max...
+   SUCCESS: GPU locked to 2100 MHz
+2. Setting MEM clock range to max...
+   SUCCESS: MEM locked to 6001 MHz
+3. Setting power limit to max...
+   SUCCESS: Power limit set to 70W
+4. Setting application clocks...
+   SUCCESS: App clocks set to mem=6001 gpu=2100
+5. Setting persistence mode...
+   FAILED: Not Supported
+6. Trying to query/set auto boosted clocks...
+   Auto boost query: Not Supported
+   Auto boost set: Not Supported
+
+Waiting 2 seconds for state transition...
+
+=== AFTER LOCK ===
+Clocks: GPU=420 MHz  MEM=405 MHz
+PState: P8
+Power: 20.1W
+Throttle reasons: 0x0000000000000004
+>>> CLOCKS UNCHANGED - hardware is not responding to lock commands <<<

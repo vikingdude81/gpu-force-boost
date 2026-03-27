@@ -1,10 +1,10 @@
 ﻿<#
 .SYNOPSIS
-    GPU Force Boost - Forces NVIDIA RTX A2000 to max performance state (P0) for LLM inference.
+    GPU Force Boost - tunes NVIDIA RTX A2000 for high sustained performance under LLM load.
     
 .DESCRIPTION
-    Monitors and controls NVIDIA GPU performance states. Can lock clocks to maximum boost,
-    enable persistence mode, and auto-detect when LM Studio is running to force P0 state.
+    Monitors and controls NVIDIA GPU performance states. Can lock clocks, enable persistence mode,
+    and auto-detect LM Studio to prepare the GPU for sustained boost during active workload.
 
 .NOTES
     Requires Administrator rights. Will auto-relaunch as admin if not elevated.
@@ -183,7 +183,7 @@ function Format-PState {
     switch ($PState) {
         "P0" { Write-Color "P0 (MAX BOOST)" "BrightGreen" }
         "P1" { Write-Color "P1 (High)"      "Green" }
-        "P2" { Write-Color "P2 (Medium)"     "Yellow" }
+        "P2" { Write-Color "P2 (SUSTAINED COMPUTE)" "Green" }
         "P3" { Write-Color "P3 (Medium-Low)" "Yellow" }
         "P5" { Write-Color "P5 (Low)"        "BrightYellow" }
         "P8" { Write-Color "P8 (IDLE)"       "BrightRed" }
@@ -195,6 +195,12 @@ function Show-Status {
     param([int]$Idx)
     
     $s = Get-GpuStatus $Idx
+
+    $isComputePstate = $s.PState -in @("P0", "P1", "P2")
+    $isHighMemClock = [int]$s.MemClockMHz -ge 5000
+    $isHighGpuClock = [int]$s.GpuClockMHz -ge 900
+    $isLoaded = [int]$s.GpuUtil -ge 20
+    $boostHealthy = $isComputePstate -and $isHighMemClock -and $isHighGpuClock
     
     Write-Host ""
     Write-Color "  GPU:          " "Gray"; Write-ColorLine $s.Name "White"
@@ -211,6 +217,15 @@ function Show-Status {
         Write-ColorLine "Enabled" "Green"
     } else {
         Write-ColorLine "Disabled" "Red"
+    }
+
+    Write-Color "  Boost Health: " "Gray"
+    if ($boostHealthy) {
+        Write-ColorLine "GOOD (compute clocks active)" "BrightGreen"
+    } elseif ($isLoaded) {
+        Write-ColorLine "LIMITED (load present, but clocks below target)" "Yellow"
+    } else {
+        Write-ColorLine "IDLE (run workload to validate boost)" "Gray"
     }
     Write-Host ""
     
@@ -232,23 +247,23 @@ function Enable-MaxPerformance {
     & $NVIDIA_SMI -i $Idx -pm 1 2>&1 | Out-Null
     Write-ColorLine "ON" "Green"
     
-    # 2. Lock GPU clocks to max
-    if ($limits.Gpu -gt 0) {
-        Write-Color "  [2/4] Lock GPU clock to $($limits.Gpu) MHz... " "Gray"
-        & $NVIDIA_SMI -i $Idx -lgc $($limits.Gpu),$($limits.Gpu) 2>&1 | Out-Null
-        Write-ColorLine "LOCKED" "Green"
-    } else {
-        Write-Color "  [2/4] Lock GPU clock... " "Gray"
-        Write-ColorLine "SKIPPED (couldn't detect max clock)" "Yellow"
-    }
-    
-    # 3. Lock memory clocks to max
+    # 2. Lock memory clocks first (higher mem clock unlocks higher GPU bins)
     if ($limits.Mem -gt 0) {
-        Write-Color "  [3/4] Lock mem clock to $($limits.Mem) MHz... " "Gray"
+        Write-Color "  [2/4] Lock mem clock to $($limits.Mem) MHz... " "Gray"
         & $NVIDIA_SMI -i $Idx -lmc $($limits.Mem),$($limits.Mem) 2>&1 | Out-Null
         Write-ColorLine "LOCKED" "Green"
     } else {
-        Write-Color "  [3/4] Lock mem clock... " "Gray"
+        Write-Color "  [2/4] Lock mem clock... " "Gray"
+        Write-ColorLine "SKIPPED (couldn't detect max clock)" "Yellow"
+    }
+
+    # 3. Lock GPU clocks to max
+    if ($limits.Gpu -gt 0) {
+        Write-Color "  [3/4] Lock GPU clock to $($limits.Gpu) MHz... " "Gray"
+        & $NVIDIA_SMI -i $Idx -lgc $($limits.Gpu),$($limits.Gpu) 2>&1 | Out-Null
+        Write-ColorLine "LOCKED" "Green"
+    } else {
+        Write-Color "  [3/4] Lock GPU clock... " "Gray"
         Write-ColorLine "SKIPPED (couldn't detect max clock)" "Yellow"
     }
     
@@ -258,7 +273,8 @@ function Enable-MaxPerformance {
     Write-ColorLine "MAX PERFORMANCE" "Green"
     
     Write-Host ""
-    Write-ColorLine "  OK GPU locked to maximum boost. Run 'status' to verify P0." "BrightGreen"
+    Write-ColorLine "  OK GPU prepared for sustained boost under load." "BrightGreen"
+    Write-ColorLine "     Note: Idle can still show P8/P5; under load, healthy states are usually P0/P1/P2." "Gray"
 }
 
 function Reset-Performance {
@@ -318,7 +334,7 @@ function Start-AutoMode {
     
     $boosted = $false
     Write-ColorLine "  >> Auto mode: watching for '$WatchProcess'" "Cyan"
-    Write-ColorLine "    Will force P0 when process detected, reset when it exits." "Gray"
+    Write-ColorLine "    Will prepare sustained boost when process detected, reset when it exits." "Gray"
     Write-ColorLine "    Polling every ${PollIntervalSeconds}s. Ctrl+C to stop." "Gray"
     Write-Host ""
     
@@ -331,7 +347,7 @@ function Start-AutoMode {
         
         if ($found -and -not $boosted) {
             $time = Get-Date -Format "HH:mm:ss"
-            Write-ColorLine "  [$time] Detected '$WatchProcess' -- forcing P0 boost!" "BrightGreen"
+            Write-ColorLine "  [$time] Detected '$WatchProcess' -- applying sustained boost profile!" "BrightGreen"
             Enable-MaxPerformance $Idx
             $boosted = $true
         }

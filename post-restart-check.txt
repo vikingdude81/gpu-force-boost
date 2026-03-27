@@ -1,0 +1,47 @@
+﻿=== THROTTLE REASONS (BASELINE) ===
+
+    Performance State                                  : P8
+    Clocks Event Reasons
+        Idle                                           : Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+        Display Clock Setting                          : Not Active
+    Clocks Event Reasons Counters
+        SW Power Capping                               : 0 us
+
+
+
+=== APPLYING LOCKS ===
+All done.
+All done.
+Memory clocks set to "(memClkMin 6001, memClkMax 6001)" for GPU 00000000:01:00.0
+All done.
+GPU clocks set to "(gpuClkMin 2100, gpuClkMax 2100)" for GPU 00000000:01:00.0
+All done.
+Power limit for GPU 00000000:01:00.0 was set to 70.00 W from 70.00 W.
+All done.
+=== STATUS 1s AFTER LOCK ===
+P8, 420 MHz, 405 MHz, 11.58 W, 0 %
+=== THROTTLE REASONS AFTER LOCK ===
+
+    Performance State                                  : P8
+    Clocks Event Reasons
+        Idle                                           : Not Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+        Display Clock Setting                          : Not Active
+    Clocks Event Reasons Counters
+        SW Power Capping                               : 0 us
+
+
+

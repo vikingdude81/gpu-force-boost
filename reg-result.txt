@@ -1,0 +1,8 @@
+﻿Before: EnableDriverControlledPMM = 1
+All keys set.
+  EnableDriverControlledPMM = 1
+  PerfLevelSrc = 8738
+  PowerMizerEnable = 1
+  PowerMizerLevel = 1
+  PowerMizerDefault = 1
+  PowerMizerDefaultAC = 1
