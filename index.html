@@ -279,6 +279,7 @@
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <StatusBadge active={connected}         label={connected ? "API ONLINE" : "API OFFLINE"} />
+              <StatusBadge active={state.driverModel === "TCC"} label={state.driverModel || "---"} />
               <StatusBadge active={clocksLocked}      label={clocksLocked ? "CLOCKS LOCKED" : "CLOCKS FREE"} />
               <StatusBadge active={state.persistence} label={state.persistence ? "PERSIST ON" : "PERSIST OFF"} />
               <StatusBadge active={boosted}           label={boosted ? "P0 ACTIVE" : "IDLE"} />
@@ -304,11 +305,6 @@
               </div>
               <div style={{ fontSize: 11, color: "#4a6a8a", marginTop: 8 }}>
                 {state.gpuClock} MHz&nbsp;/&nbsp;{state.maxGpuClock} MHz max
-                {state.appClockGpu > 0 && (
-                  <span style={{ color: clocksLocked ? "#aadd44" : "#3a5a7a", marginLeft: 12 }}>
-                    app lock: {state.appClockGpu} MHz
-                  </span>
-                )}
               </div>
               {clocksLocked && !boosted && (
                 <div style={{ fontSize: 10, color: "#aadd44", marginTop: 6, opacity: 0.7 }}>
@@ -379,14 +375,15 @@
               {/* Stats grid */}
               <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
                 {[
-                  ["APP CLK",  state.appClockGpu  > 0 ? `${state.appClockGpu} MHz`  : "—"],
-                  ["APP MEM",  state.appClockMem  > 0 ? `${state.appClockMem} MHz`  : "—"],
-                  ["MEM CLK",  `${state.memClock} MHz`],
+                  ["GPU CLK",  `${state.gpuClock}/${state.maxGpuClock} MHz`],
+                  ["MEM CLK",  `${state.memClock}/${state.maxMemClock} MHz`],
                   ["MEM UTIL", `${state.memUtil}%`],
                   ["VRAM",     `${state.memUsedMB}/${state.memTotalMB} MB`],
                   ["POWER",    `${Math.round(state.powerDraw)}/${state.powerLimit}W`],
                   ["PERSIST",  state.persistence ? "ON" : "OFF"],
                   ["LOCKED",   clocksLocked ? "YES" : "NO"],
+                  ["DRIVER",   state.driverModel || "---"],
+                  ["P-STATE",  state.pstate],
                 ].map(([k, v]) => (
                   <div key={k} style={{ background: "#0a0e14", borderRadius: 6, padding: "6px 10px" }}>
                     <div style={{ color: "#3a5a7a", fontSize: 9, letterSpacing: "0.5px" }}>{k}</div>

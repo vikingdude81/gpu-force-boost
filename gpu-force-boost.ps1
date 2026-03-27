@@ -204,7 +204,7 @@ function Show-Status {
     Write-Color "  GPU Util:     " "Gray"; Write-ColorLine "$($s.GpuUtil)%" "White"
     Write-Color "  Mem Util:     " "Gray"; Write-ColorLine "$($s.MemUtil)%" "White"
     Write-Color "  VRAM:         " "Gray"; Write-ColorLine "$($s.MemUsedMB) / $($s.MemTotalMB) MB" "White"
-    Write-Color "  Temperature:  " "Gray"; Write-ColorLine "$($s.TempC)Â°C" "White"
+    Write-Color "  Temperature:  " "Gray"; Write-ColorLine "$($s.TempC) C" "White"
     Write-Color "  Power:        " "Gray"; Write-ColorLine "$($s.PowerDraw) / $($s.PowerLimit) W" "White"
     Write-Color "  Persistence:  " "Gray"
     if ($s.Persistence -match "Enabled") {
@@ -217,12 +217,12 @@ function Show-Status {
     return $s
 }
 
-# â”€â”€ Core Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Core Actions ---------------------------------------------------------------
 
 function Enable-MaxPerformance {
     param([int]$Idx)
     
-    Write-ColorLine "  â–º Forcing maximum performance state..." "Cyan"
+    Write-ColorLine "  >> Forcing maximum performance state..." "Cyan"
     Write-Host ""
     
     $limits = Get-GpuClockLimits $Idx
@@ -258,13 +258,13 @@ function Enable-MaxPerformance {
     Write-ColorLine "MAX PERFORMANCE" "Green"
     
     Write-Host ""
-    Write-ColorLine "  âœ“ GPU locked to maximum boost. Run 'status' to verify P0." "BrightGreen"
+    Write-ColorLine "  OK GPU locked to maximum boost. Run 'status' to verify P0." "BrightGreen"
 }
 
 function Reset-Performance {
     param([int]$Idx)
     
-    Write-ColorLine "  â–º Resetting to default performance state..." "Yellow"
+    Write-ColorLine "  >> Resetting to default performance state..." "Yellow"
     Write-Host ""
     
     Write-Color "  [1/3] Reset GPU clocks... " "Gray"
@@ -280,14 +280,14 @@ function Reset-Performance {
     Write-ColorLine "OK" "Green"
     
     Write-Host ""
-    Write-ColorLine "  âœ“ GPU returned to default power management." "BrightGreen"
+    Write-ColorLine "  OK GPU returned to default power management." "BrightGreen"
 }
 
 function Start-Monitor {
     param([int]$Idx)
     
-    Write-ColorLine "  â–º Live monitoring (Ctrl+C to stop)" "Cyan"
-    Write-ColorLine "  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€" "Gray"
+    Write-ColorLine "  >> Live monitoring (Ctrl+C to stop)" "Cyan"
+    Write-ColorLine "  --------------------------------------------" "Gray"
     Write-Host ""
     Write-ColorLine "  TIME       PSTATE  GPU_CLK  MEM_CLK  UTIL  TEMP  POWER    VRAM" "Gray"
     
@@ -317,7 +317,7 @@ function Start-AutoMode {
     param([int]$Idx)
     
     $boosted = $false
-    Write-ColorLine "  â–º Auto mode: watching for '$WatchProcess'" "Cyan"
+    Write-ColorLine "  >> Auto mode: watching for '$WatchProcess'" "Cyan"
     Write-ColorLine "    Will force P0 when process detected, reset when it exits." "Gray"
     Write-ColorLine "    Polling every ${PollIntervalSeconds}s. Ctrl+C to stop." "Gray"
     Write-Host ""
@@ -331,13 +331,13 @@ function Start-AutoMode {
         
         if ($found -and -not $boosted) {
             $time = Get-Date -Format "HH:mm:ss"
-            Write-ColorLine "  [$time] Detected '$WatchProcess' â€” forcing P0 boost!" "BrightGreen"
+            Write-ColorLine "  [$time] Detected '$WatchProcess' -- forcing P0 boost!" "BrightGreen"
             Enable-MaxPerformance $Idx
             $boosted = $true
         }
         elseif (-not $found -and $boosted) {
             $time = Get-Date -Format "HH:mm:ss"
-            Write-ColorLine "  [$time] '$WatchProcess' exited â€” resetting GPU." "Yellow"
+            Write-ColorLine "  [$time] '$WatchProcess' exited -- resetting GPU." "Yellow"
             Reset-Performance $Idx
             $boosted = $false
         }
@@ -345,7 +345,7 @@ function Start-AutoMode {
         # Mini status line
         $s = Get-GpuStatus $Idx
         $time = Get-Date -Format "HH:mm:ss"
-        $stateIcon = if ($boosted) { "â–²" } else { "â-‹" }
+        $stateIcon = if ($boosted) { "^" } else { "o" }
         $pcolor = if ($s.PState -eq "P0") { "BrightGreen" } else { "Gray" }
         Write-Color "  $stateIcon [$time] " "Gray"
         Write-Color "$($s.PState) " $pcolor
@@ -357,7 +357,7 @@ function Start-AutoMode {
     }
 }
 
-# â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Main -----------------------------------------------------------------------
 
 Write-Banner
 $gpuIdx = Find-A2000GpuIndex

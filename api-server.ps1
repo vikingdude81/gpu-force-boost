@@ -52,8 +52,8 @@ function Get-StatusJson {
 
     $query = "pstate,clocks.gr,clocks.mem,clocks.max.gr,clocks.max.mem," +
              "utilization.gpu,utilization.memory,temperature.gpu," +
-             "power.draw,power.limit,memory.used,memory.total,persistence_mode,name," +
-             "clocks.applications.gr,clocks.applications.mem"
+             "power.draw,power.limit,memory.used,memory.total," +
+             "persistence_mode,driver_model.current,name"
 
     $raw = & $NVSMI -i $GPU_IDX --query-gpu=$query --format=csv,noheader,nounits 2>&1
 
@@ -63,22 +63,19 @@ function Get-StatusJson {
     }
 
     $parts = ($raw -split ",") | ForEach-Object { $_.Trim() }
-    if ($parts.Count -lt 13) {
+    if ($parts.Count -lt 14) {
         return "{`"error`":`"Unexpected nvidia-smi output`"}"
     }
 
-    # name is index 13, appClocks are 14 and 15 (name may contain commas so handle carefully)
-    $gpuName  = $parts[13].Trim()
-    $appGpu   = if ($parts.Count -gt 14) { Parse-Int $parts[14] } else { 0 }
-    $appMem   = if ($parts.Count -gt 15) { Parse-Int $parts[15] } else { 0 }
-    $maxGpu   = Parse-Int $parts[3]
-    $clocksLocked = ($appGpu -gt 0 -and $appGpu -ge ($maxGpu - 50))
+    $driverModel = $parts[13].Trim()
+    $gpuName = if ($parts.Count -gt 14) { ($parts[14..($parts.Count-1)] -join ",").Trim() } else { "NVIDIA GPU" }
+    $clocksLocked = $script:BoostActive -eq $true
 
     [PSCustomObject]@{
         pstate       = $parts[0]
         gpuClock     = Parse-Int    $parts[1]
         memClock     = Parse-Int    $parts[2]
-        maxGpuClock  = $maxGpu
+        maxGpuClock  = Parse-Int    $parts[3]
         maxMemClock  = Parse-Int    $parts[4]
         gpuUtil      = Parse-Int    $parts[5]
         memUtil      = Parse-Int    $parts[6]
@@ -88,12 +85,14 @@ function Get-StatusJson {
         memUsedMB    = Parse-Int    $parts[10]
         memTotalMB   = Parse-Int    $parts[11]
         persistence  = ($parts[12] -match "Enabled")
+        driverModel  = $driverModel
         name         = $gpuName
-        appClockGpu  = $appGpu
-        appClockMem  = $appMem
         clocksLocked = $clocksLocked
     } | ConvertTo-Json -Compress
 }
+
+# -- Track boost state in-process -----------------------------------------------
+$script:BoostActive = $false
 
 # -- Boost ----------------------------------------------------------------------
 function Invoke-Boost {
@@ -104,23 +103,44 @@ function Invoke-Boost {
     $maxGpu  = Parse-Int $clkParts[0]
     $maxMem  = Parse-Int $clkParts[1]
 
-    # Get max power limit
-    $plRaw    = & $NVSMI -i $GPU_IDX --query-gpu=power.max_limit --format=csv,noheader,nounits 2>&1
-    $maxPower = Parse-Double ($plRaw -join '')
+    $results = @()
 
-    & $NVSMI -i $GPU_IDX -pm 1 2>&1 | Out-Null
-    & $NVSMI -i $GPU_IDX --auto-boost-default=0 2>&1 | Out-Null
-    if ($maxGpu  -gt 0) { & $NVSMI -i $GPU_IDX -lgc "${maxGpu},${maxGpu}"   2>&1 | Out-Null }
-    if ($maxMem  -gt 0) { & $NVSMI -i $GPU_IDX -lmc "${maxMem},${maxMem}"   2>&1 | Out-Null }
-    if ($maxPower -gt 0) { & $NVSMI -i $GPU_IDX -pl $maxPower               2>&1 | Out-Null }
+    # 1. Persistence mode (may not be supported on all platforms - that's OK)
+    $out = & $NVSMI -i $GPU_IDX -pm 1 2>&1 | Out-String
+    $results += "pm1: $($out.Trim())"
 
-    # Verify application clock was applied
-    $verify = & $NVSMI -i $GPU_IDX --query-gpu=clocks.applications.gr --format=csv,noheader,nounits 2>&1
-    $appliedClock = Parse-Int ($verify -join '')
-    $confirmed = $appliedClock -gt 0
-    $detail = if ($confirmed) { "App clock confirmed at ${appliedClock} MHz" } else { "Lock sent - verify with status" }
+    # 2. Lock GPU clocks to max
+    $lgcOk = $false
+    if ($maxGpu -gt 0) {
+        $out = & $NVSMI -i $GPU_IDX -lgc $maxGpu,$maxGpu 2>&1 | Out-String
+        $lgcOk = $out -match 'locked|set|success|All done'
+        $results += "lgc: $($out.Trim())"
+    }
 
-    return "{`"ok`":true,`"msg`":`"Locked GPU to ${maxGpu} MHz / Mem to ${maxMem} MHz (${detail})`",`"appliedClock`":${appliedClock}}"
+    # 3. Lock memory clocks to max
+    $lmcOk = $false
+    if ($maxMem -gt 0) {
+        $out = & $NVSMI -i $GPU_IDX -lmc $maxMem,$maxMem 2>&1 | Out-String
+        $lmcOk = $out -match 'locked|set|success|All done'
+        $results += "lmc: $($out.Trim())"
+    }
+
+    # 4. Verify by reading current clocks
+    Start-Sleep -Milliseconds 500
+    $verRaw = & $NVSMI -i $GPU_IDX --query-gpu=clocks.gr,clocks.mem,pstate --format=csv,noheader,nounits 2>&1
+    $verParts = ($verRaw -split ",") | ForEach-Object { $_.Trim() }
+    $nowGpu = Parse-Int $verParts[0]
+    $nowMem = Parse-Int $verParts[1]
+    $nowPS  = if ($verParts.Count -gt 2) { $verParts[2] } else { '?' }
+
+    $allOk = $lgcOk -or $lmcOk
+    $script:BoostActive = $allOk
+
+    $detail = "GPU:${nowGpu}/${maxGpu}MHz Mem:${nowMem}/${maxMem}MHz PState:${nowPS}"
+    $msg = if ($allOk) { "Clocks locked! $detail" } else { "Lock commands sent but may need admin. $detail" }
+
+    $debugLog = ($results -join ' | ').Replace('"','').Replace("`n",' ').Replace("`r",'')
+    return "{`"ok`":$($allOk.ToString().ToLower()),`"msg`":`"$msg`",`"debug`":`"$debugLog`",`"gpuClock`":$nowGpu,`"memClock`":$nowMem,`"pstate`":`"$nowPS`"}"
 }
 
 # -- Reset ----------------------------------------------------------------------
@@ -129,10 +149,16 @@ function Invoke-Reset {
 
     & $NVSMI -i $GPU_IDX -rgc 2>&1 | Out-Null
     & $NVSMI -i $GPU_IDX -rmc 2>&1 | Out-Null
-    & $NVSMI -i $GPU_IDX --auto-boost-default=1 2>&1 | Out-Null
     & $NVSMI -i $GPU_IDX -pm 0  2>&1 | Out-Null
+    $script:BoostActive = $false
 
-    return '{"ok":true,"msg":"GPU clocks reset to default power management"}'
+    Start-Sleep -Milliseconds 500
+    $verRaw = & $NVSMI -i $GPU_IDX --query-gpu=clocks.gr,pstate --format=csv,noheader,nounits 2>&1
+    $verParts = ($verRaw -split ",") | ForEach-Object { $_.Trim() }
+    $nowGpu = Parse-Int $verParts[0]
+    $nowPS  = if ($verParts.Count -gt 1) { $verParts[1] } else { '?' }
+
+    return "{`"ok`":true,`"msg`":`"GPU reset to defaults. Now at ${nowGpu}MHz $nowPS`"}"
 }
 
 # -- LM Studio detect -----------------------------------------------------------
