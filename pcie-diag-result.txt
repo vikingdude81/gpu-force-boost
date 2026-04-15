@@ -1,0 +1,46 @@
+PCIe Gen1 Diagnostic Results - April 13, 2026
+================================================
+
+CRITICAL FINDING: PCIe link stuck at Gen1 x16 under 100% compute load.
+Expected: Gen3 x16 (max supported by both GPU and root port).
+
+NVML Deep Diagnostic Results:
+- GPU: NVIDIA RTX A2000 12GB
+- P-State: P8 (stuck, should be P0-P2 under load)
+- Driver Model: TCC
+- PCIe: Gen1 x16 (current) / Gen3 x16 (max)     <-- PROBLEM
+- Clocks: 420/405 MHz (idle clocks under full load)
+- Max Clocks: 2100/6001 MHz
+- Power: 26W / 70W limit
+- Utilization: GPU=100%, Memory=68%
+- Throttle Reasons: NONE (0x0000000000000000)
+- Applications Clocks: 1200/6001 MHz (NVML returns values despite nvidia-smi saying "deprecated")
+- Supported Memory Clocks: 6001, 5701, 5001, 810, 405 MHz
+- GPU Operation Mode: Not Supported
+- Persistence Mode: Not Supported (Windows TCC)
+- Compute Mode: Default
+
+PCIe Root Port: AMD IOD (VEN_1022&DEV_1633)
+- This is a CPU-direct PCIe Gen3 x16 root port
+- Link should negotiate to Gen3 under load
+
+THEORY: The PCIe link being stuck at Gen1 is either:
+1. The CAUSE of P8 - driver won't boost clocks on a Gen1 link (unlikely, these should be independent)
+2. A SYMPTOM of the same root cause - some power management at BIOS/chipset level is 
+   keeping both the PCIe link and GPU in low-power state
+3. A BIOS PCIe speed setting being set to Gen1/Auto with broken negotiation
+
+ACTION PLAN:
+1. Reboot (needed because PnP bounce broke nvidia-smi communication)
+2. Run post-reboot-diag.cmd as Administrator
+3. Check PCIe Gen under load
+4. If Gen1 persists: Enter BIOS > Settings > IO Ports > PCIEX16 Slot Speed > Set to Gen3
+5. Also check: Above 4G Decoding, Resizable BAR settings
+6. Reboot and test again
+
+BIOS Settings to Check (Gigabyte B550 GAMING X V2):
+- Settings > IO Ports > Initial Display Output: PCIe Slot 1 -> Keep as is if display on 3050
+- Settings > IO Ports > PCIEX16 Slot Speed: Auto -> Change to Gen3
+- Settings > IO Ports > Above 4G Decoding: Try Enable
+- Settings > IO Ports > Re-Size BAR Support: Try Disable
+- Settings > AMD CBS > NBIO Common Options > PCIe Link Speed: Auto -> Gen3

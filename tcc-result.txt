@@ -1,3 +1,4 @@
-﻿Set driver model to TCC for GPU 00000000:01:00.0.
+Set driver model to TCC for GPU 00000000:01:00.0.
 All done.
 Reboot required.
+

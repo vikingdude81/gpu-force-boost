@@ -1,16 +1,12 @@
-﻿Reinstalling active NVIDIA display INF (oem27.inf)...
-Microsoft PnP Utility
+=== Disabling RTX 3050 ===
+RTX 3050 disabled: PCI\VEN_10DE&DEV_2507&SUBSYS_88761043&REV_A1\6&5E21FF3&0&00000211
+=== A2000 status after 3050 disable ===
+595.97, TCC, P8, 420 MHz, 405 MHz, 11.49 W
 
-Adding driver package:  oem27.inf
-Driver package added successfully. (Already exists in the system)
-Published Name:         oem27.inf
-Driver package is up-to-date on device: PCI\VEN_10DE&DEV_2571&SUBSYS_161117AA&REV_A1\4&1c5d7d4&0&0009
+=== Applying locks ===
+Memory clocks set to "(memClkMin 6001, memClkMax 6001)" for GPU 00000000:01:00.0
+All done.
 
-Total driver packages:  1
-Added driver packages:  0
-
-
-nvidia-smi after reinstall:
-NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver. Make sure that the latest NVIDIA driver is installed and running. This can also be happening if non-NVIDIA GPU is running as primary display, and NVIDIA GPU is in WDDM mode.
-
+GPU clocks set to "(gpuClkMin 2100, gpuClkMax 2100)" for GPU 00000000:01:00.0
+All done.
 

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"Start-Process powershell -Verb RunAs -ArgumentList @\\('-NoExit', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\\\Users\\\\akbon\\\\Downloads\\\\files\\\\gpu-force-boost.ps1', '-Mode', 'fix', '-RegProfile', 'legacy'\\) -Wait\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi --query-gpu=pstate,clocks.gr,clocks.mem,power.draw,power.limit,persistence_mode --format=csv,noheader\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi --query-gpu=index,name,driver_model.current --format=csv,noheader\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 -q | Select-String -Pattern 'Clocks|Power Limit|Throttle|Applications Clocks|Default Power'\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 -q | Select-String -Pattern 'Applications Clocks|Default Applications|Locked Clocks|Max Clocks|SM |Memory |Throttle'\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command ':*)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\akbon\\\\Downloads\\\\files\\\\clockcheck.txt' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 -q\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command 'for \\($i=0; $i -lt 15; $i++\\) { $s = nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader; Write-Host \"$i: $s\"; Start-Sleep 2 }')",
+      "Bash(cmd /c \"for /L %i in \\(1,1,15\\) do \\(nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader && timeout /t 2 /nobreak > nul\\)\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"c:/Users/akbon/Downloads/files/gpu-force-boost.ps1\" -Mode monitor -PollIntervalSeconds 2)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command ':*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-File','C:\\\\Users\\\\akbon\\\\Downloads\\\\files\\\\apply-tcc-fix.ps1'\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 -q | Select-String 'Performance State|SM |Memory |Throttle|EnableDriver|Power Limit|Applications Clocks'\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader\")",
+      "Bash(cmd /c \"for /L %i in \\(1,1,20\\) do \\(nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader & timeout /t 3 /nobreak > nul\\)\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"1..20 | ForEach-Object { nvidia-smi -i 0 --query-gpu=pstate,clocks.gr,clocks.mem,utilization.gpu,power.draw --format=csv,noheader; Start-Sleep 3 }\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"nvidia-smi --query-gpu=driver_version --format=csv,noheader -i 0\")"
+    ]
+  }
+}

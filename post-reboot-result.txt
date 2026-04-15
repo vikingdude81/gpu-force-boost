@@ -1,0 +1,32 @@
+=== Post-Reboot GPU Diagnostic Results ===
+Date: 2026-04-14 17:49:50
+
+DRIVER STATUS:
+- Driver: 595.97 (CUDA 13.2)
+- Model: WDDM (Display Active: ON)
+- Stale drivers: ALL REMOVED (only oem27.inf remains)
+
+GPU UNDER LOAD (8192x8192 matmul):
+- P-State: P2 (BOOSTED!)
+- GPU Clock: 1155 MHz (max 2100)
+- Mem Clock: 5701 MHz (max 6001)
+- Power: 68.5W / 70W TDP
+- GPU Util: 100%
+- Temperature: 55C
+
+PCIE LINK:
+- Current: Gen3 x16 (CORRECT!)
+- Max: Gen3 x16
+- FIXED: Was Gen1 x16 before driver cleanup
+
+ROOT CAUSE:
+- Stale driver packages (595.79 from RTX 3050) were conflicting
+  with the A2000's 595.97 driver. Removing all stale packages
+  (oem63, oem87, oem8, oem92) and disabling the 3050 resolved
+  both the PCIe Gen1 and P-state issues.
+
+RESOLUTION:
+1. Removed all conflicting driver packages (595.79 + 591.86)
+2. Disabled RTX 3050 device
+3. Switched A2000 from TCC to WDDM (for display output)
+4. Result: Full GPU boost restored, PCIe Gen3, display working
